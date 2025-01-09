@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Multiplicación</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+    <div id="startScreen" class="center">
+        <img src="./IMA/registro-removebg-preview.png" id="backgroundImage" alt="Background" class="background-img">
+        <h1>Bienvenido al Juego de Multiplicación</h1>
+        <input type="text" id="username" placeholder="Nombre de usuario" >
+
+        <button id="registerButton">Registrarse</button>
+        <button id="startButton">Comenzar Juego</button>
+        <button id="difficultyButton">Dificultad: Easy</button>
+    </div>
+    
+    <div id="gameOverScreen" class="center" style="display: none;">
+        <img src="./IMA/registro-removebg-preview.png" id="backgroundImage" alt="Background" class="background-img">
+        <h1>Juego Terminado</h1>
+
+        <!-- Cuadro con el nombre y el puntaje del jugador -->
+        <div class="score-box">
+            <p id="finalScore"></p>
+            <p id="finalName"></p>
+        </div>
+
+        <button id="replayButton">Volver a Jugar</button>
+        <button id="backToStartButton">Volver al Inicio</button>
+
+        <!-- Tabla de clasificación -->
+        <h2>Tabla de Clasificación</h2>
+        <table id="leaderboard">
+            <thead>
+                <tr>
+                    <th>Posición</th>
+                    <th>Jugador</th>
+                    <th>Puntaje</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Aquí se insertarán las filas de la tabla mediante JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <div id="flash" class="flash"></div>
+
+    <canvas id="gameCanvas" width="950" height="750"></canvas>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>
