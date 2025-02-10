@@ -26,13 +26,26 @@ const difficultyButton = document.getElementById('difficultyButton');
 const replayButton = document.getElementById('replayButton');
 const backToStartButton = document.getElementById('backToStartButton');
 const leaderboardTableBody = document.getElementById('leaderboard').querySelector('tbody');
+const showLeaderboardButton = document.getElementById('showLeaderboardButton');
+const leaderboardSection = document.getElementById('leaderboardSection'); // Sección de la tabla
+const backToStartButtonLeaderboard = document.getElementById('backToStartButtonLeaderboard'); // Botón de volver al inicio desde la tabla
+
+const selectTableButton = document.getElementById('customTableModeButton');
+const tableSelection = document.getElementById('tableSelection');
+const multiplicationTableSelect = document.getElementById('multiplicationTable');
+const confirmTableButton = document.getElementById('confirmTableButton');
+const selectedTableMessage = document.getElementById('selectedTableMessage');
+const exitCustomModeButton = document.getElementById('exitCustomModeButton');
+
+let tablaSeleccionada = null;
+let gameMode = 'easy'; // El modo por defecto sigue siendo "easy"
 
 let username = '';
 let difficulty = 'easy';
 let gameState = 'start';
 
 // Game settings
-const bird = { x: 50, y: 150, width: 30, height: 30, gravity: 0.315, lift: -6, velocity: 0 };
+const bird = { x: 50, y: 150, width: 20, height: 20, gravity: 0.15, lift: -4, velocity: 0 };
 let pipes = [];
 const pipeWidth = 100;
 const gapSize = 125;
@@ -123,6 +136,12 @@ const fetchLeaderboard = async () => {
     }
 };
 
+// Mostrar la tabla de puntajes desde la pantalla de inicio
+showLeaderboardButton.addEventListener('click', () => {
+    fetchLeaderboard();
+    gameOverScreen.style.display = 'flex';
+    startScreen.style.display = 'none';
+});
 
 
 // Event listeners for buttons
@@ -137,6 +156,11 @@ registerButton.addEventListener('click', () => {
 
 startButton.addEventListener('click', () => {
     if (username) {
+        if (gameMode === 'tablaPersonalizada' && !tablaSeleccionada) {
+            alert("Por favor, selecciona una tabla de multiplicar antes de empezar.");
+            return;
+        }
+
         startScreen.style.display = 'none';
         gameOverScreen.style.display = 'none';
         canvas.style.display = 'block';
@@ -158,22 +182,50 @@ backToStartButton.addEventListener('click', () => {
     startScreen.style.display = 'flex';
 });
 
+
+// Botón para el modo "Tabla Personalizada"
+selectTableButton.addEventListener('click', () => {
+    gameMode = 'tablaPersonalizada'; // Cambia el modo
+    tableSelection.style.display = 'block'; // Muestra el selector
+    selectedTableMessage.textContent = ''; // Limpia el mensaje anterior
+});
+
+// Confirmar la tabla seleccionada
+confirmTableButton.addEventListener('click', () => {
+    tablaSeleccionada = parseInt(multiplicationTableSelect.value);
+    selectedTableMessage.textContent = `Jugarás con la tabla del ${tablaSeleccionada}`;
+    tableSelection.style.display = 'none';
+});
+
+// Botón de dificultad (Easy / Hard)
 difficultyButton.addEventListener('click', () => {
-    if (difficulty === 'easy') {
-        difficulty = 'hard';
+    if (gameMode === 'tablaPersonalizada') {
+        alert("Estás en el modo Tabla Personalizada. No puedes cambiar la dificultad.");
+        return;
+    }
+
+    if (gameMode === 'easy') {
+        gameMode = 'hard';
         difficultyButton.textContent = 'Dificultad: Hard';
     } else {
-        difficulty = 'easy';
+        gameMode = 'easy';
         difficultyButton.textContent = 'Dificultad: Easy';
     }
 });
 
-// Bird jump
-document.addEventListener('keydown', () => {
-    if (gameState === 'playing') {
+exitCustomModeButton.addEventListener('click', () => {
+    gameMode = 'easy'; // ✅ Regresa al modo por defecto (Fácil)
+    tablaSeleccionada = null; // ✅ Elimina la selección de tabla personalizada
+    tableSelection.style.display = 'none'; // ✅ Oculta el selector de tabla
+    selectedTableMessage.textContent = ''; // ✅ Limpia el mensaje de selección
+
+    alert("Modo Tabla Personalizada desactivado. Ahora puedes jugar en modo Fácil o Difícil.");
+});
+
+// Bird jump (Evita reiniciar con "Espacio" en Game Over)
+document.addEventListener('keydown', (event) => {
+    if (gameState === 'playing' && event.code === 'Space') {
         bird.velocity = bird.lift;
-    } else if (gameState === 'over') {
-        resetGame();
     }
 });
 
@@ -187,16 +239,22 @@ function resetGame() {
     startScreen.style.display = 'flex';
     canvas.style.display = 'none';
     gameOverScreen.style.display = 'none';
+
+    // ✅ Enviar solo la señal al Arduino para resetear la pantalla LCD
+    socket.emit('resetGame');
 }
 
 // Generate random multiplication problems based on difficulty
 function generateProblem() {
     let num1, num2, correctAnswer;
     
-    if (difficulty === 'easy') {
+    if (gameMode === 'tablaPersonalizada' && tablaSeleccionada) {
+        num1 = tablaSeleccionada; // ✅ Se asegura de usar la tabla seleccionada
+        num2 = Math.floor(Math.random() * 9) + 1;
+    } else if (gameMode === 'easy') {
         num1 = Math.floor(Math.random() * 9) + 1;
         num2 = Math.floor(Math.random() * 9) + 1;
-    } else if (difficulty === 'hard') {
+    } else if (gameMode === 'hard') {
         num1 = Math.floor(Math.random() * 90) + 10;
         num2 = Math.random() < 0.5 ? 2 : 3;
     }
@@ -205,13 +263,15 @@ function generateProblem() {
     
     let wrongAnswer;
     do {
-        if (difficulty === 'easy') {
+        if (gameMode === 'tablaPersonalizada') {
+            // ✅ Asegura que la respuesta incorrecta esté cerca de la correcta
+            wrongAnswer = correctAnswer + (Math.floor(Math.random() * 3) + 1) * (Math.random() < 0.5 ? 1 : -1);
+        } else if (difficulty === 'easy') {
             wrongAnswer = correctAnswer + (Math.floor(Math.random() * 3) + 1) * (Math.random() < 0.5 ? 1 : -1);
         } else {
             wrongAnswer = Math.floor(Math.random() * 1000);
         }
     } while (wrongAnswer === correctAnswer || wrongAnswer < 0);
-    
     return { 
         problem: `${num1} x ${num2}`, 
         answers: [
@@ -233,6 +293,32 @@ function drawGameOverScreen() {
     // Llamar a la función para obtener la tabla de clasificación
     fetchLeaderboard();
 }
+
+// Modificar el evento para solo reiniciar el juego si ambos botones fueron presionados
+let replayPressed = false;
+let backToStartPressed = false;
+
+replayButton.addEventListener('click', () => {
+    replayPressed = true;
+    checkRestartConditions();
+});
+
+backToStartButton.addEventListener('click', () => {
+    backToStartPressed = true;
+    checkRestartConditions();
+});
+
+// Solo reinicia el juego si ambos botones fueron presionados
+function checkRestartConditions() {
+    if (replayPressed && backToStartPressed) {
+        resetGame();
+        gameOverScreen.style.display = 'none';
+        startScreen.style.display = 'flex';
+        replayPressed = false;
+        backToStartPressed = false;
+    }
+}
+
 
 // Game loop
 function gameLoop() {
@@ -265,8 +351,9 @@ function gameLoop() {
             });
         }
 
+        // VELOCIDAD PARA LOS TUBOS
         pipes.forEach(pipe => {
-            pipe.x -= 1.75;
+            pipe.x -= 1.50;
 
             // Top pipe
             ctx.drawImage(topPipeImage, pipe.x, 0, pipeWidth, pipe.upperHeight);

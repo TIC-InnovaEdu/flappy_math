@@ -16,6 +16,30 @@
         <button id="registerButton">Registrarse</button>
         <button id="startButton">Comenzar Juego</button>
         <button id="difficultyButton">Dificultad: Easy</button>
+        <button id="showLeaderboardButton"> Tabla de Puntajes</button>
+
+         <!-- 📌 Nuevo botón para el modo "Tabla Personalizada" -->
+         <button id="customTableModeButton">Modo Tabla Personalizada</button>
+
+         <!-- 📌 Selector de tabla (se oculta al inicio) -->
+         <div id="tableSelection" style="display: none;">
+             <label for="multiplicationTable">Elige una tabla de multiplicar:</label>
+             <select id="multiplicationTable">
+                 <option value="2">Tabla del 2</option>
+                 <option value="3">Tabla del 3</option>
+                 <option value="4">Tabla del 4</option>
+                 <option value="5">Tabla del 5</option>
+                 <option value="6">Tabla del 6</option>
+                 <option value="7">Tabla del 7</option>
+                 <option value="8">Tabla del 8</option>
+                 <option value="9">Tabla del 9</option>
+             </select>
+             <button id="confirmTableButton">Confirmar</button>
+             <button id="exitCustomModeButton" style="background-color: red; color: white;">Salir</button>
+         </div>
+ 
+         <p id="selectedTableMessage"></p>
+ 
     </div>
     
     <div id="gameOverScreen" class="center" style="display: none;">
