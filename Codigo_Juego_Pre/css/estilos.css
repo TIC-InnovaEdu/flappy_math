@@ -1,0 +1,139 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    font-family: Arial, sans-serif;
+    overflow: hidden; /* Evita scrollbars */
+}
+
+/* Cronómetro sobre el canvas */
+#timer-container {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.5rem;
+  font-family: sans-serif;
+  color: #fff;
+  z-index: 10;
+}
+
+#flash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: none;
+    z-index: 10;
+    opacity: 0.8;
+    pointer-events: none; /* Para que no interfiera con otros elementos */
+}
+
+.flash-success {
+    background-color: rgba(0, 255, 0, 0.5); /* Verde con transparencia */
+}
+
+.flash-error {
+    background-color: rgba(255, 0, 0, 0.5); /* Rojo con transparencia */
+}
+
+#backgroundImage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* Envía la imagen al fondo */
+    object-fit: cover; /* Asegura que la imagen cubra toda el área */
+}
+
+#startScreen, #gameOverScreen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    z-index: 1; /* Asegura que el contenido esté por encima de la imagen */
+    padding: 20px; /* Añade algo de espacio alrededor */
+    box-sizing: border-box;
+}
+
+#gameCanvas {
+    display: none; /* Se oculta el canvas inicialmente */
+    border: 2px solid #000;
+    margin: 0 auto;
+    width: 100vw;  /* Ancho completo del viewport */
+    height: 100vh; /* Altura completa del viewport */
+    background-size: cover;
+}
+
+#startScreen input, #startScreen button, #gameOverScreen button {
+    margin: 10px;
+    padding: 10px;
+    font-size: 16px;
+}
+
+#startScreen button, #gameOverScreen button {
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    width: 200px;
+}
+
+#startScreen button:hover, #gameOverScreen button:hover {
+    background-color: #45a049;
+}
+
+#finalScore, #finalName {
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+#difficultyButton {
+    background-color: #008CBA;
+}
+
+#difficultyButton:hover {
+    background-color: #007BB5;
+}
+
+.score-box {
+    padding: 20px;
+    background-color: #e0f7da;
+    border: 2px solid #4CAF50;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+    width: 80%; /* Ajusta según sea necesario */
+    max-width: 300px; /* Ajusta según el espacio disponible */
+    margin: 0 auto 20px auto;
+}
+
+#leaderboard {
+    width: 100%;
+    max-width: 600px; /* Ajusta este valor según el espacio disponible */
+    margin: 0 auto; /* Centra la tabla */
+    border-collapse: collapse;
+}
+
+#leaderboard th, #leaderboard td {
+    border: 1px solid black;
+    padding: 8px;
+    text-align: center;
+}
+
+#leaderboard th {
+    background-color: #4CAF50;
+    color: white;
+}
+#username {
+    position: relative; /* Asegura que el campo no esté cubierto por otro elemento */
+    z-index: 10; /* Asegura que esté en la parte superior */
+}
