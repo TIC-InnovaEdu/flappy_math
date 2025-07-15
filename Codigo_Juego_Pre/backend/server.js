@@ -11,6 +11,16 @@ const Question = require('./models/question');
 const User     = require('./models/user');
 
 dotenv.config();  // Carga MONGO_URI
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser:    true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('✅ MongoDB conectado'))
+.catch(err => {
+  console.error('❌ Error conectando a MongoDB:', err);
+  process.exit(1);
+});
+
 
 // 2) APP + HTTP + SOCKET.IO
 const app    = express();
@@ -117,12 +127,67 @@ app.get('*', (req, res, next) => {
   res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
-// 7) SOCKET.IO EVENTS
+/* 7) SOCKET.IO EVENTS  ─────────────────────────────────────────────── */
 io.on('connection', socket => {
-  console.log('🔌 Client connected', socket.id);
-  socket.on('flash', type => io.emit('flash', type));
-  socket.on('resetGame', () => io.emit('resetGame'));
-  socket.on('disconnect', () => console.log('❌ Client disconnected', socket.id));
+  const role = socket.handshake.query.role || 'web';
+  socket.data.role = role;             // guarda el rol en la sesión
+
+  console.log(`[${role}] conectado →`, socket.id);
+
+  /* ─────  A) EMPAREJAR ──────────────────────────────────────────── */
+  if (role === 'controller') {
+    // busca un navegador que aún no tenga mando
+    const web = [...io.sockets.sockets.values()]
+                .find(s => s.data.role === 'web' && !s.data.controllerId);
+
+    if (web) {
+      // relación bilateral
+      web.data.controllerId     = socket.id;
+      socket.data.webId         = web.id;
+      web.emit('controllerStatus', 'connected');
+      console.log('🎮 Mando asignado a', web.id);
+    } else {
+      console.log('🕹️  Mando conectado pero ningún navegador disponible');
+    }
+  }
+
+  /* ─────  B) EVENTO DE ENTRADA ÚNICO ───────────────────────────── */
+  socket.on('input', ({ id }) => {
+    // Determina a qué navegador va este input:
+    const targetWeb =
+      socket.data.role === 'controller'
+        ? io.sockets.sockets.get(socket.data.webId) // su pareja
+        : socket;                                   // él mismo si es web
+
+    if (!targetWeb) return;   // sin pareja aún
+
+    // Aquí pones la lógica de tu juego:
+    // Ejemplo: botón 0 = correcto
+    if (id === 0) {
+      io.to(targetWeb.id).emit('flash', 'success');   // feedback en pantalla
+      socket.emit('buzzer', 'success');               // feedback solo al mando
+    } else {
+      io.to(targetWeb.id).emit('flash', 'error');
+      socket.emit('buzzer', 'error');
+    }
+  });
+
+  /* ─────  C) COMPATIBILIDAD CON CÓDIGO WEB EXISTENTE ───────────── */
+  socket.on('flash',      t => io.emit('flash', t));
+  socket.on('resetGame',  () => io.emit('resetGame'));
+
+  /* ─────  D) DESCONEXIÓN/HOT-UNPLUG ────────────────────────────── */
+  socket.on('disconnect', () => {
+    console.log(`[${role}] desconectado →`, socket.id);
+
+    if (role === 'controller' && socket.data.webId) {
+      const web = io.sockets.sockets.get(socket.data.webId);
+      if (web) {
+        delete web.data.controllerId;
+        web.emit('controllerStatus', 'disconnected');
+      }
+    }
+  });
 });
 
 // 8) INICIO DEL SERVIDOR

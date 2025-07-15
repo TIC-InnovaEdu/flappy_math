@@ -1,115 +1,122 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego de Multiplicación</title>
-    <link rel="stylesheet" href="css/estilos.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego de Multiplicación</title>
+  <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body>
 
-    <div id="startScreen" class="center">
-        <img src="./IMA/registro-removebg-preview.png" id="backgroundImage" alt="Background" class="background-img">
-        <h1>Bienvenido al Juego de Multiplicación</h1>
-        <input type="text" id="username" placeholder="Nombre de usuario" >
+  <!-- Indicador siempre visible: teclado vs mando -->
+  <div style="position:absolute; top:1rem; right:1rem; font-size:1.5rem;">
+    <span id="ctlStatus" title="Control actual">⌨️</span>
+  </div>
 
-        <button id="registerButton">Registrarse</button>
-        <button id="startButton">Comenzar Juego</button>
-        <button id="difficultyButton">Dificultad: Easy</button>
-        <button id="showLeaderboardButton"> Tabla de Puntajes</button>
+  <div id="startScreen" class="center">
+    <img src="./IMA/registro-removebg-preview.png"
+         id="backgroundImage"
+         alt="Background"
+         class="background-img">
+    <h1>Bienvenido al Juego de Multiplicación</h1>
+    <input type="text" id="username" placeholder="Nombre de usuario">
 
-         <!-- 📌 Nuevo botón para el modo "Tabla Personalizada" -->
-         <button id="customTableModeButton">Modo Tabla Personalizada</button>
+    <button id="registerButton">Registrarse</button>
+    <button id="startButton">Comenzar Juego</button>
+    <button id="difficultyButton">Dificultad: Easy</button>
+    <button id="showLeaderboardButton">Tabla de Puntajes</button>
+    <button id="customTableModeButton">Modo Tabla Personalizada</button>
 
-         <!-- 📌 Selector de tabla (se oculta al inicio) -->
-         <div id="tableSelection" style="display: none;">
-             <label for="multiplicationTable">Elige una tabla de multiplicar:</label>
-             <select id="multiplicationTable">
-                 <option value="2">Tabla del 2</option>
-                 <option value="3">Tabla del 3</option>
-                 <option value="4">Tabla del 4</option>
-                 <option value="5">Tabla del 5</option>
-                 <option value="6">Tabla del 6</option>
-                 <option value="7">Tabla del 7</option>
-                 <option value="8">Tabla del 8</option>
-                 <option value="9">Tabla del 9</option>
-             </select>
-             <button id="confirmTableButton">Confirmar</button>
-             <button id="exitCustomModeButton" style="background-color: red; color: white;">Salir</button>
-         </div>
- 
-         <p id="selectedTableMessage"></p>
-       <button id="manageQuestionsButton">Administrar Preguntas</button>
-
-       <!-- Panel oculto para CRUD de preguntas -->
-       <div id="adminPanel" style="display:none; padding:1rem; background:#f5f5f5; border:1px solid #ccc; margin-top:1rem;">
-         <h3>Gestión de Preguntas</h3>
-         <ul id="questionList"></ul>
-         <hr>
-         <form id="questionForm">
-           <label>
-             Enunciado:
-             <textarea id="qText" rows="2" style="width:100%"></textarea>
-           </label>
-           <div id="answersContainer">
-             <div class="answerRow">
-               <input type="text" class="ansValue" placeholder="Respuesta" />
-               <label><input type="checkbox" class="ansCorrect" /> Correcta</label>
-             </div>
-             <div class="answerRow">
-               <input type="text" class="ansValue" placeholder="Respuesta" />
-               <label><input type="checkbox" class="ansCorrect" /> Correcta</label>
-             </div>
-           </div>
-           <button type="button" id="addAnswerBtn">Añadir Opción</button>
-           <br><br>
-           <input type="hidden" id="editingId" value="" />
-           <button type="submit">Guardar Pregunta</button>
-           <button type="button" id="cancelEditBtn">Cancelar</button>
-         </form>
-       </div> 
- 
+    <div id="tableSelection" style="display: none;">
+      <label for="multiplicationTable">Elige una tabla de multiplicar:</label>
+      <select id="multiplicationTable">
+        <option value="2">Tabla del 2</option>
+        <option value="3">Tabla del 3</option>
+        <option value="4">Tabla del 4</option>
+        <option value="5">Tabla del 5</option>
+        <option value="6">Tabla del 6</option>
+        <option value="7">Tabla del 7</option>
+        <option value="8">Tabla del 8</option>
+        <option value="9">Tabla del 9</option>
+      </select>
+      <button id="confirmTableButton">Confirmar</button>
+      <button id="exitCustomModeButton" style="background-color: red; color: white;">
+        Salir
+      </button>
     </div>
-    
-    <div id="gameOverScreen" class="center" style="display: none;">
-        <img src="./IMA/registro-removebg-preview.png" id="backgroundImage" alt="Background" class="background-img">
-        <h1>Juego Terminado</h1>
 
-        <!-- Cuadro con el nombre y el puntaje del jugador -->
-        <div class="score-box">
-            <p id="finalScore"></p>
-            <p id="finalName"></p>
+    <p id="selectedTableMessage"></p>
+    <button id="manageQuestionsButton">Administrar Preguntas</button>
+
+    <!-- CRUD de preguntas -->
+    <div id="adminPanel" style="display:none; padding:1rem; background:#f5f5f5; border:1px solid #ccc; margin-top:1rem;">
+      <h3>Gestión de Preguntas</h3>
+      <ul id="questionList"></ul>
+      <hr>
+      <form id="questionForm">
+        <label>
+          Enunciado:
+          <textarea id="qText" rows="2" style="width:100%"></textarea>
+        </label>
+        <div id="answersContainer">
+          <div class="answerRow">
+            <input type="text" class="ansValue" placeholder="Respuesta" />
+            <label><input type="checkbox" class="ansCorrect" /> Correcta</label>
+          </div>
+          <div class="answerRow">
+            <input type="text" class="ansValue" placeholder="Respuesta" />
+            <label><input type="checkbox" class="ansCorrect" /> Correcta</label>
+          </div>
         </div>
+        <button type="button" id="addAnswerBtn">Añadir Opción</button>
+        <br><br>
+        <input type="hidden" id="editingId" value="" />
+        <button type="submit">Guardar Pregunta</button>
+        <button type="button" id="cancelEditBtn">Cancelar</button>
+      </form>
+    </div>
+  </div>
 
-        <button id="replayButton">Volver a Jugar</button>
-        <button id="backToStartButton">Volver al Inicio</button>
+  <div id="gameOverScreen" class="center" style="display: none;">
+    <img src="./IMA/registro-removebg-preview.png"
+         id="backgroundImage"
+         alt="Background"
+         class="background-img">
+    <h1>Juego Terminado</h1>
 
-        <!-- Tabla de clasificación -->
-        <h2>Tabla de Clasificación</h2>
-        <table id="leaderboard">
-            <thead>
-                <tr>
-                    <th>Posición</th>
-                    <th>Jugador</th>
-                    <th>Puntaje</th>
-                    <th>Tiempo</th> 
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Aquí se insertarán las filas de la tabla mediante JavaScript -->
-            </tbody>
-        </table>
+    <div class="score-box">
+      <p id="finalScore"></p>
+      <p id="finalName"></p>
     </div>
 
-    <div id="flash" class="flash"></div>
-    
-    <div id="timer-container">
+    <button id="replayButton">Volver a Jugar</button>
+    <button id="backToStartButton">Volver al Inicio</button>
+
+    <h2>Tabla de Clasificación</h2>
+    <table id="leaderboard" style="display:none">
+      <thead>
+        <tr>
+          <th>Posición</th>
+          <th>Jugador</th>
+          <th>Puntaje</th>
+          <th>Tiempo</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="flash" class="flash"></div>
+
+  <div id="timer-container">
     Tiempo restante: <span id="timer">00:00</span>
-    </div>
+  </div>
 
-    <canvas id="gameCanvas" width="950" height="750"></canvas>
+  <canvas id="gameCanvas" width="950" height="750"></canvas>
 
-    <script type="module" src="js/script.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
+  <!-- 1) Primero la librería Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- 2) Después tu módulo de juego -->
+  <script type="module" src="js/script.js"></script>
 </body>
 </html>

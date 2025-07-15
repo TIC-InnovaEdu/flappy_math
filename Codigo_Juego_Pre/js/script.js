@@ -1,25 +1,28 @@
-const socket = io();
-socket.on('flash', type => {
-  const flash = document.getElementById('flash');
-  flash.className = `flash flash-${type}`;
-  flash.style.display = 'block';
-  setTimeout(() => flash.style.display = 'none', 100);
+const socket = io({ reconnection: true, reconnectionDelay: 3000 });
+
+console.log('📦 script.js cargado');
+
+
+/* 2)  Indicador visual del tipo de control (⌨️ / 🎮) */
+const ctlStatus = document.getElementById('ctlStatus');   // <span id="ctlStatus">⌨️</span>
+function updateCtlIcon(state) {
+  if (!ctlStatus) return;
+  ctlStatus.textContent = state === 'connected' ? '🎮' : '⌨️';
+}
+updateCtlIcon('disconnected');   // valor inicial
+
+/* 3)  El servidor avisa cuando un mando entra o sale */
+socket.on('controllerStatus', state => {
+  updateCtlIcon(state);
+  console.log('Estado del mando:', state);
 });
 
-
-function showFlash(type) {
-    if (type === 'success') {
-        flash.className = 'flash flash-success';
-        socket.emit('flash', 'success');
-    } else {
-        flash.className = 'flash flash-error';
-        socket.emit('flash', 'error');
-    }
-    flash.style.display = 'block';
-    setTimeout(() => {
-        flash.style.display = 'none';
-    }, 100); // El flash parpadeará durante 100ms
+/* 4)  Función para enviar un “botón” genérico */
+function sendBtn(id) {
+  socket.emit('input', { id });     // mismo evento que usa el ESP32
 }
+
+
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -95,30 +98,6 @@ bottomPipeImage.src = './IMA/bottom-removebg-preview.png';
 const backgroundImage = new Image();
 backgroundImage.src = './IMA/juego-removebg-preview.png';
 
-// Función para registrar un nuevo usuario
-const registerUser = async (username) => {
-    try {
-        const response = await fetch('http://localhost:5000/api/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ username }),
-        });
-        const data = await response.json();
-        if (response.ok) {
-            console.log('Usuario registrado:', data.user);
-        } else {
-            console.error('Error al registrar usuario:', data.message);
-            if (data.message === 'Username already exists') {
-                alert('Este nombre de usuario ya existe. Por favor, elige otro.');
-            }
-        }
-    } catch (error) {
-        console.error('Error en la solicitud de registro:', error);
-    }
-};
-
 
 // Función para actualizar la puntuación de un usuario
 const updateScore = async (username, score, time) => {
@@ -163,28 +142,13 @@ const fetchLeaderboard = async () => {
     }
 };
 
-// Registro de usuario
-await fetch('/api/register', { method:'POST', body: JSON.stringify({ username }), headers:{'Content-Type':'application/json'} });
 
-// Carga de preguntas
-const questions = await fetch('/api/questions').then(r=>r.json());
-
-// Actualizar score
-await fetch(`/api/users/${username}/score`, {
-  method:'PUT',
-  headers:{'Content-Type':'application/json'},
-  body: JSON.stringify({ score, time })
-});
 
 // Mostrar la tabla de puntajes desde la pantalla de inicio
-showLeaderboardBtn.addEventListener('click', async () => {
-  try {
-    await fetchLeaderboard();
-    startScreen.style.display = 'none';
-    gameOverScreen.style.display = 'flex';
-  } catch (err) {
-    console.error(err);
-  }
+showLeaderboardButton.addEventListener('click', async () => {
+  await fetchLeaderboard();
+  startScreen.style.display = 'none';
+  gameOverScreen.style.display = 'flex';
 });
 
 
@@ -207,13 +171,16 @@ startButton.addEventListener('click', () => {
     return alert('Selecciona una tabla antes de empezar');
   }
 
-  // 🔥 Arranca el cronómetro
-  startTime = Date.now();
+  
+  startScreen.style.display   = 'none';
+  gameOverScreen.style.display= 'none';
 
-  startScreen.style.display = 'none';
-  gameOverScreen.style.display = 'none';
-  canvas.style.display = 'block';
+  // Muestra el canvas y habilita sus eventos
+  canvas.style.display      = 'block';
+  canvas.classList.add('playing');
+
   gameState = 'playing';
+  startTime = Date.now();
   requestAnimationFrame(gameLoop);
 });
 
@@ -283,11 +250,18 @@ confirmTableBtn.addEventListener('click', () => {
   selTableDiv.style.display = 'none';
 });
 
-// Bird jump (Evita reiniciar con "Espacio" en Game Over)
-document.addEventListener('keydown', (event) => {
-    if (gameState === 'playing' && event.code === 'Space') {
-        bird.velocity = bird.lift;
-    }
+/* 5)  Mapear teclas del teclado a botones virtuales */
+document.addEventListener('keydown', e => {
+  if (gameState !== 'playing') return;
+
+  if (e.code === 'Space') {                 // ejemplo: saltar
+    bird.velocity = bird.lift;
+    sendBtn(4);                             // joystick-click
+  }
+  if (e.code === 'KeyA') sendBtn(0);        // botón A
+  if (e.code === 'KeyS') sendBtn(1);        // botón B
+  if (e.code === 'KeyD') sendBtn(2);        // botón C
+  if (e.code === 'KeyF') sendBtn(3);        // botón D
 });
 
 // Al cargar la página, traemos todas las preguntas
@@ -300,6 +274,14 @@ document.addEventListener('keydown', (event) => {
     console.error('Error cargando preguntas:', e);
   }
 })();
+
+function endGame() {
+  // Deshabilita el canvas y vuelve a mostrar gameOverScreen
+  canvas.classList.remove('playing');
+  canvas.style.display      = 'none';
+  gameOverScreen.style.display  = 'flex';
+  // ...
+}
 
 function getRandomDBQuestion() {
   if (!questionsList.length) return null;
@@ -318,6 +300,19 @@ function checkCloudCollision() {
     }
 }
 
+function showFlash(type) {
+    if (type === 'success') {
+        flash.className = 'flash flash-success';
+        socket.emit('flash', 'success');
+    } else {
+        flash.className = 'flash flash-error';
+        socket.emit('flash', 'error');
+    }
+    flash.style.display = 'block';
+    setTimeout(() => {
+        flash.style.display = 'none';
+    }, 100); // El flash parpadeará durante 100ms
+}
 
 function drawCloud() {
     ctx.fillStyle = 'white';
@@ -593,36 +588,6 @@ function gameLoop() {
     }
 }
 
-pipes.forEach(pipe => {
-    pipe.x -= 1.50;
-
-    // Dibuja los tubos y la pregunta
-    ctx.drawImage(topPipeImage, pipe.x, 0, pipeWidth, pipe.upperHeight);
-    ctx.drawImage(middlePipeImage, pipe.x, pipe.upperHeight + gapSize, pipeWidth, pipe.middleHeight - (pipe.upperHeight + gapSize));
-    ctx.drawImage(bottomPipeImage, pipe.x, pipe.lowerY, pipeWidth, canvas.height - pipe.lowerY);
-
-    // Dibuja la pregunta en el tubo
-    ctx.fillText(pipe.problem.problem, pipe.x + 10, 50);
-
-    // Dibuja las opciones en el medio de los tubos
-    ctx.fillText(pipe.problem.answers[0].value, pipe.x + 10, middleOfTopGap);
-    ctx.fillText(pipe.problem.answers[1].value, pipe.x + 10, middleOfBottomGap);
-
-    // Colisión y verificación de la respuesta correcta
-    if (bird.x < pipe.x + pipeWidth && bird.x + bird.width > pipe.x) {
-        if (bird.y > pipe.upperHeight && bird.y < pipe.middleHeight && pipe.problem.answers[0].isCorrect) {
-            score++;
-            showFlash('success');
-        } else if (bird.y > pipe.middleHeight && bird.y < pipe.lowerY && pipe.problem.answers[1].isCorrect) {
-            score++;
-            showFlash('success');
-        } else {
-            showFlash('error');
-            gameState = 'over';
-        }
-    }
-});
-
 // ─── CRUD de preguntas ────────────────────────────────────────────────────────
 const btnManageQ    = document.getElementById('manageQuestionsButton');
 const adminPanel    = document.getElementById('adminPanel');
@@ -686,46 +651,86 @@ async function loadQuestions() {
 }
 
 async function registerUser(name) {
-  const res = await fetch('/api/register', {
+  // 1) Usa ruta relativa para no atarte a localhost:5000
+  const res  = await fetch('/api/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: name })
+    body:    JSON.stringify({ username: name })
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Error registrando usuario');
-  return data.user;
-}
 
-async function updateScore(name, sc, time) {
-  const res = await fetch(`/api/users/${name}/score`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ score: sc, time })
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Error actualizando puntuación');
-  return data;
-}
+  // 2) Caso OK (201 Created)
+  if (res.ok) {
+    // data === { username, score, time, _id, ... }
+    return { username: data.username };
+  }
 
-async function fetchLeaderboard() {
-  const res = await fetch('/api/users');
-  if (!res.ok) throw new Error('Error fetching leaderboard');
-  const list = await res.json();
+  // 3) Error 400 por falta de username
+  if (res.status === 400 && data.message === 'Username required') {
+    alert('Por favor, ingresa un nombre de usuario');
+    return null;   // abortamos el login
+  }
+
+  // 4) Error 400 por usuario duplicado → login válido
+  if (res.status === 400 && data.message === 'Username exists') {
+    return { username: name };
+  }
+
+  // 5) Cualquier otro error
+  throw new Error(data.message || 'Error desconocido en registro');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const usernameInput  = document.getElementById('username');
+  const registerButton = document.getElementById('registerButton');
+  const startButton    = document.getElementById('startButton');
+  let username = null;
+
+  registerButton.addEventListener('click', async e => {
+  e.preventDefault();
+  const name = usernameInput.value.trim();
+  if (!name) return alert('Ingresa un nombre de usuario');
+
+    try {
+    const result = await registerUser(name);
+    if (!result) return;                 // en caso de 'Username required'
+    username = result.username;
+    alert(`Conectado como ${username}`);
+    startButton.disabled = false;
+  } catch (err) {
+    alert(`No se pudo conectar: ${err.message}`);
+  }
+});
+});
+//async function updateScore(name, sc, time) {
+  //const res = await fetch(`/api/users/${name}/score`, {
+    //method: 'PUT',
+    //headers: { 'Content-Type': 'application/json' },
+    //body: JSON.stringify({ score: sc, time })
+  //});
+  //const data = await res.json();
+  //if (!res.ok) throw new Error(data.message || 'Error actualizando puntuación');
+  //return data;
+//}
+
+//async function fetchLeaderboard() {
+  //const res = await fetch('/api/users');
+  //if (!res.ok) throw new Error('Error fetching leaderboard');
+  //const list = await res.json();
   // ordénalo por score↓, time↑
-  list.sort((a, b) => (b.score - a.score) || (a.time - b.time));
-  const tbody = document.querySelector('#leaderboard tbody');
-  tbody.innerHTML = '';
-  list.forEach((u, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i+1}</td>
-      <td>${u.username}</td>
-      <td>${u.score}</td>
-      <td>${u.time}s</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+  //list.sort((a, b) => (b.score - a.score) || (a.time - b.time));
+  //const tbody = document.querySelector('#leaderboard tbody');
+  //tbody.innerHTML = '';
+  //list.forEach((u, i) => {
+    //const tr = document.createElement('tr');
+    //tr.innerHTML = `
+      //<td>${i+1}</td>
+      //<td>${u.username}</td>
+      //<td>${u.score}</td>
+      //<td>${u.time}s</td>
+    //`;
+    //tbody.appendChild(tr);
+  //});
+//}
 
 // Iniciar edición
 function startEdit(id, q) {
@@ -774,4 +779,3 @@ if (gameState === 'start') {
     canvas.style.display = 'block';
     gameLoop();
 }
-

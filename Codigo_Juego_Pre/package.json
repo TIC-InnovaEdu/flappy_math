@@ -13,7 +13,6 @@
     "@socket.io/redis-adapter": "^8.3.0",
     "express": "^4.19.2",
     "redis": "^5.6.0",
-    "serialport": "^12.0.0",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
