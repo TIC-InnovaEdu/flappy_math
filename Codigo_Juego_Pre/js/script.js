@@ -64,6 +64,13 @@ let customTable  = 2;  // valor por defecto
 let startTime = 0;
 let elapsedTime = 0;
 
+let totalQuestions = 0;
+let correctAnswers = 0;
+let incorrectAnswers = 0;
+
+let gameStartTime = null;
+let gameEndTime = null;
+
 let tablaSeleccionada = null;
 let gameMode = 'easy'; // El modo por defecto sigue siendo "easy"
 
@@ -73,12 +80,12 @@ let gameState = 'start';
 
 let questionsList = [];      // Aquí guardaremos las preguntas del servidor
 
-
+const MAX_QUESTIONS = 20;  // o el número que quieras usar
 // Game settings
-const bird = { x: 50, y: 150, width: 20, height: 20, gravity: 0.12, lift: -4, velocity: 0 };
+const bird = { x: 50, y: 150, width: 20, height: 20, gravity: 0.15, lift: -4, velocity: 0 };
 let pipes = [];
 const pipeWidth = 100;
-const gapSize = 125;
+const gapSize = 275;
 let frameCount = 0;
 let score = 0;
 
@@ -166,22 +173,29 @@ registerButton.addEventListener('click', async () => {
 });
 
 startButton.addEventListener('click', () => {
-  if (!username) return alert('Por favor, regístrate primero');
-  if (gameMode === 'tablaPersonalizada' && !tablaSeleccionada) {
-    return alert('Selecciona una tabla antes de empezar');
-  }
+  if (username) {
+        if (gameMode === 'tablaPersonalizada' && !tablaSeleccionada) {
+            alert("Por favor, selecciona una tabla de multiplicar antes de empezar.");
+            return;
+        }
 
-  
-  startScreen.style.display   = 'none';
-  gameOverScreen.style.display= 'none';
+        startScreen.style.display = 'none';
+        gameOverScreen.style.display = 'none';
+        canvas.style.display = 'block';
+        gameState = 'playing';
 
-  // Muestra el canvas y habilita sus eventos
-  canvas.style.display      = 'block';
-  canvas.classList.add('playing');
+        // 🔹 Reset de métricas del experimento
+        score = 0;
+        totalQuestions = 0;
+        correctAnswers = 0;
+        incorrectAnswers = 0;
+        gameStartTime = performance.now();
+        gameEndTime = null;
 
-  gameState = 'playing';
-  startTime = Date.now();
-  requestAnimationFrame(gameLoop);
+        requestAnimationFrame(gameLoop);
+    } else {
+        alert('Por favor, regístrate primero');
+    }
 });
 
 replayButton.addEventListener('click', () => {
@@ -443,19 +457,41 @@ function generateProblem() {
 }
 
 function drawGameOverScreen() {
-  // Muestra pantalla de fin
-  startScreen.style.display    = 'none';
-  canvas.style.display         = 'none';
   gameOverScreen.style.display = 'flex';
-  document.getElementById('finalScore').innerText = `Score: ${score}`;
-  document.getElementById('finalName').innerText  = `Player: ${username}`;
+    canvas.style.display = 'none';
 
-  // 🔥 Calcula tiempo en segundos
-  elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+    const totalTimeSeconds = gameStartTime && gameEndTime
+        ? ((gameEndTime - gameStartTime) / 1000).toFixed(2)
+        : 0;
 
-  // Actualiza el backend
-  updateScore(username, score, elapsedTime).catch(console.error);
-    fetchLeaderboard().catch(err => console.error(err));
+    document.getElementById('finalScore').innerText =
+        `Score: ${score}
+Tiempo: ${totalTimeSeconds} s
+Preguntas: ${totalQuestions}
+Correctas: ${correctAnswers}
+Incorrectas: ${incorrectAnswers}`;
+
+    document.getElementById('finalName').innerText = `Player: ${username}`;
+
+    // Actualizar puntuación en backend (si quieres seguir usando esto)
+    updateScore(username, score);
+
+    // Si más adelante haces un endpoint específico para resultados del experimento:
+    /*
+    fetch('http://localhost:5000/api/resultados', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username,
+            tiempo: totalTimeSeconds,
+            preguntas: totalQuestions,
+            correctas: correctAnswers,
+            incorrectas: incorrectAnswers
+        })
+    });
+    */
+
+    fetchLeaderboard();
 
 }
 
@@ -505,67 +541,138 @@ function gameLoop() {
         ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
 
         // Bird physics
-        bird.velocity += bird.gravity;
-        bird.y += bird.velocity;
+        const delta = 1 / 60;  // equivalente a 60 fps “constantes”
+bird.velocity += bird.gravity * delta * 60;
+bird.y += bird.velocity * delta * 60;
 
         // Draw bird
         ctx.drawImage(birdImage, bird.x, bird.y, bird.width, bird.height);
 
         // Generate and draw pipes with math problems
-        if (frameCount % 230 === 0) {
-            const upperPipeHeight = Math.floor(Math.random() * (canvas.height / 3)) + 50;
-            const middlePipeHeight = upperPipeHeight + gapSize + 100;
-            const lowerPipeY = middlePipeHeight + gapSize + 100;
-            const problem = generateProblem();
-            const pipeX = canvas.width;
-            pipes.push({
-                x: pipeX, 
-                upperHeight: upperPipeHeight,
-                middleHeight: middlePipeHeight,
-                lowerY: lowerPipeY,
-                problem 
-            });
+        if (frameCount % 500 === 0) {
+            const minTopHeight = 60;        // altura mínima del tubo superior
+    const middleSolidHeight = 80;   // grosor del tubo del medio
+    const minBottomHeight = 60;     // altura mínima del tubo inferior
+
+    // altura máxima permitida para que todo quepa en pantalla
+    const maxTopHeight = canvas.height - (2 * gapSize + middleSolidHeight + minBottomHeight);
+
+    // altura del tubo superior (entre minTopHeight y maxTopHeight)
+    const upperPipeHeight = Math.floor(
+        Math.random() * (maxTopHeight - minTopHeight) + minTopHeight
+    );
+
+    // fin del primer hueco + tubo del medio
+    const middlePipeHeight = upperPipeHeight + gapSize + middleSolidHeight;
+
+    // inicio del tubo inferior (después del segundo hueco)
+    const lowerPipeY = middlePipeHeight + gapSize;
+
+    const problem = generateProblem();
+    const pipeX = canvas.width;
+
+    pipes.push({
+        x: pipeX,
+        upperHeight: upperPipeHeight,
+        middleHeight: middlePipeHeight,
+        lowerY: lowerPipeY,
+        problem
+    });
         }
 
         // VELOCIDAD PARA LOS TUBOS
         pipes.forEach(pipe => {
-            pipe.x -= 1.50;
+// Inicializar si no existe
+    if (pipe.evaluated === undefined) {
+        pipe.evaluated = false;
+    }
 
-            // Top pipe
-            ctx.drawImage(topPipeImage, pipe.x, 0, pipeWidth, pipe.upperHeight);
+    // Movimiento del tubo
+    pipe.x -= 1;
 
-            // Middle pipe
-            ctx.drawImage(middlePipeImage, pipe.x, pipe.upperHeight + gapSize, pipeWidth, pipe.middleHeight - (pipe.upperHeight + gapSize));
+    // --- EVALUAR LA RESPUESTA UNA SOLA VEZ ---
+    if (
+        bird.x < pipe.x + pipeWidth &&
+        bird.x + bird.width > pipe.x &&
+        !pipe.evaluated
+    ) {
+        pipe.evaluated = true;
+        totalQuestions++;
 
-            // Bottom pipe
-            ctx.drawImage(bottomPipeImage, pipe.x, pipe.lowerY, pipeWidth, canvas.height - pipe.lowerY);
+        let correcta = false;
 
-            // Display the math problem
-            ctx.fillStyle = 'black';
-            ctx.font = '30px Arial';
-            ctx.fillText(pipe.problem.problem, pipe.x + 10, 50);
+        // Zona superior
+        if (
+            bird.y > pipe.upperHeight &&
+            bird.y < pipe.middleHeight &&
+            pipe.problem.answers[0].isCorrect
+        ) {
+            correcta = true;
+        }
 
-            // Display answers in the middle of the gaps
-            const middleOfTopGap = (pipe.upperHeight + (pipe.middleHeight - pipe.upperHeight) / 2) - 10;
-            const middleOfBottomGap = (pipe.middleHeight + (pipe.lowerY - pipe.middleHeight) / 2) - 10;
+        // Zona inferior
+        else if (
+            bird.y > pipe.middleHeight &&
+            bird.y < pipe.lowerY &&
+            pipe.problem.answers[1].isCorrect
+        ) {
+            correcta = true;
+        }
 
-            // Correct answer in one of the gaps
-            ctx.fillText(pipe.problem.answers[0].value, pipe.x + 10, middleOfTopGap);
-            ctx.fillText(pipe.problem.answers[1].value, pipe.x + 10, middleOfBottomGap);
+        if (correcta) {
+            correctAnswers++;
+            score++;
+            showFlash('success');
+        } else {
+            incorrectAnswers++;
+            showFlash('error');
+        }
+    }
 
-            // Collision detection and score increment
-            if (
-                bird.x < pipe.x + pipeWidth &&
-                bird.x + bird.width > pipe.x
-            ) {
-                if (bird.y > pipe.upperHeight && bird.y < pipe.middleHeight && pipe.problem.answers[0].isCorrect) {
-                    score++;
-                    showFlash('success');
-                } else {
-                    showFlash('error');
-                    return drawGameOverScreen();
-                }
-            }
+    // --- COLISIÓN REAL CON EL TUBO SÓLIDO ---
+    if (
+        bird.x < pipe.x + pipeWidth &&
+        bird.x + bird.width > pipe.x &&
+        (bird.y < pipe.upperHeight || bird.y + bird.height > pipe.lowerY)
+    ) {
+        gameEndTime = performance.now();
+        showFlash('error');
+        return drawGameOverScreen();
+    }
+
+    // --- DIBUJAR TUBOS ---
+    ctx.drawImage(topPipeImage, pipe.x, 0, pipeWidth, pipe.upperHeight);
+
+    ctx.drawImage(
+        middlePipeImage,
+        pipe.x,
+        pipe.upperHeight + gapSize,
+        pipeWidth,
+        pipe.middleHeight - (pipe.upperHeight + gapSize)
+    );
+
+    ctx.drawImage(
+        bottomPipeImage,
+        pipe.x,
+        pipe.lowerY,
+        pipeWidth,
+        canvas.height - pipe.lowerY
+    );
+
+    // --- DIBUJAR PROBLEMA ---
+    ctx.fillStyle = 'black';
+    ctx.font = '30px Arial';
+    ctx.fillText(pipe.problem.problem, pipe.x + 10, 50);
+
+    // --- DIBUJAR RESPUESTAS ---
+    const middleOfTopGap =
+        (pipe.upperHeight + (pipe.middleHeight - pipe.upperHeight) / 2) - 10;
+
+    const middleOfBottomGap =
+        (pipe.middleHeight + (pipe.lowerY - pipe.middleHeight) / 2) - 10;
+
+    ctx.fillText(pipe.problem.answers[0].value, pipe.x + 10, middleOfTopGap);
+    ctx.fillText(pipe.problem.answers[1].value, pipe.x + 10, middleOfBottomGap);
         });
 
         // Draw score
@@ -575,8 +682,9 @@ function gameLoop() {
 
         // Ground collision only
         if (bird.y + bird.height > canvas.height) {
-            showFlash('error');
-            return drawGameOverScreen();
+            gameEndTime = performance.now();
+    showFlash('error');
+    return drawGameOverScreen();
         }
 
         // Remove offscreen pipes
